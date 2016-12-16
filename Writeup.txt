@@ -1,0 +1,66 @@
+﻿  						 A TEAM
+				         PROJECT WRITEUP
+
+Team members:
+Mihir Limbachia
+Parth Kanakiya
+
+
+In this project we have made a dynamic storage allocator for C programs by making our own versions of malloc, free and realloc. For this purpose, we have used the approach “Segregated explicit free list” that contains 10 different lists with sizes varying from 64 bytes to greater than 16384 bytes in the intervals of the powers of 2.
+
+
+Why Segregated Free List?
+-------------------------
+Higher Throughput : Faster to search for a free block in the right list where it can exist according to its size.
+Better Memory Utitlisation : First fit search of a segregated free list is equivalent to best fit search of entire heap so less fragmentation.(But we have even perfomed pseudo best fit).  
+  
+Free Block Strucure :
+----+---+----+-----+-----+-----+----+-----+-------+-------+------+----+
+|         | Next       |   Prev     |                   |            |              
+| Header  | Block      |   Block    |  ……………………………………   |  Footer    |
+|         |	Pointer    |   Pointer  |                   |            |
+-----+-----+------+------+------+------+-----+-------+-------+-------+-
+
+Function wise implementation changes:
+  mm_init
+	In mm_init , the free list pointers are given memory from the heap using mem_sbrk function. Also the prologue header , prologue footer and epilogue header are added to the heap. The free list pointers are initialize to NULL.  
+
+ list_index
+	Appropriate indexing of the list is carried out in list_index function.The free blocks are added and removed from their appropriate list through add and delete functions.The index is retrurned in constant time ie. 0(1).
+
+ LIFO_coalesce & coalese
+	Coalescing is taken care of in LIFO_coalesce and coalesce functions.LIFO_coalesce adds and deletes the appropriate blocks  generated 	and used in coalescing
+ 	whereas the coalesce function takes care of generating the new free blocks by combining the given block with previous 	and/or next free blocks in the heap space.In LIFO_coalesce 
+	we create new 	block according to four cases : previous 	and next block allocated previous 	block free and next block allocated , next block free and 	previous 		block allocated and previous and next block free. We delete the 	free 	block/s 	used in creating the new block from the 	appropriate free list 	and add 	the new block after coalescing to the appropriate segregate list. 
+
+  mm_malloc
+	For allocation mm_malloc function is called. The allocation size is Double 	word-aligned and the find_fit function is called to find the suitable free 	block from
+the the appropriate list according to the allocation size.Then 	it calls 	place function to allocate the obtained suitable block with 	false as an argument along with block pointer and the (size|alloc) value that needs to be placed at header of this block.However if no such free block is obtained we call the extend_heap function to extend the heap to appropriate size and obtained block pointer is used in place call with true as the last argument.The last argument indicates whether
+ we have extended the heap during allocation as our implementation of place function varies accordingly.
+
+  find_fit
+      The find_fit function first finds the appropriate list the block needs to        	come from by finding the index through list_index function.We need to 	start the search 
+from this list and if we do not find any block of size 	greater than or 	equal to allocation size than we move on to next list 	with higher block sizes. 
+Once we find the block of appropriate size we do 	not just return that block pointer but calculate internal fragmentation 	and continue to search for a block with
+ lesser internal  fragmentation. 	This continues for 20 times and then we return the found block pointer. If 	we reach end of list and we do not get better block 
+	for 20th time we return NULL. 
+
+extend_heap
+	In extend heap we call mem_sbrk function to allocate more heap memory where we initialize the header , footer and new epilogue header of the extended the heap.	
+
+place
+	In place function if heap was extended for allocation and the obtained block size has a payload more than the allocation size than we have condition for spliting and hence we allocate allocation size and
+obtained a new block by of excess size which is free and added to the 	appropriate segregate list. If allocation size is greater than payload 	size of the block than we allocate the block with the allocation size.If the heap was not extended , than we have to delete this block as it came from some segregate free list and if there is a condition for spliting 	than we add the new block to the appropriate segregate list and delete the allocated block.
+
+mm_free 
+	For freeing a block we set the allocation bit to zero for header and footer of the freed block and coalesce the free block by calling 	LIFO_coalesce.
+	 
+mm_realloc
+	For reallocation , we first check if allocation size is zero ; if it is we free the block. If allocation size is less than old block/s size than we do not need to reallocate but return the old block pointer. If next block is free than we can combine both the blocks and if the size of the new block is greater than the reallocation size than remove the next block 	from the free list and allocate the new block.If old pointer was null than we need to call malloc to get an appropriate block. Now we call malloc function to obtain pointer. If the old block size is less than the obtained block pointer than we copy the contents of the old block till the old block size in the new block else we copy till the new block size.Than we free the old block.
+
+checkheap
+	In checkheap function we check if we encounter an allocated block in any 	free list and return if we find one. Also we check if the heap space has a bad prologue header or a bad epilogue header.Moreover we check each block in heap space is aligned and has same content in header and footer. And print each block in the heap space.Also we check if all the blocks that are free are in the one of the segregated lists.Also we check if there are any contagious free blocks that are not coalesced in the the heap.Lastly we also check if there are any allocated blocks that overlap.  
+
+	Thus because of segregated free list implementation we take less time to find the free block suitable for allocation.Hence we achieve higher throughput also first_fit implementation of segregated free list is like best fit hence we achieve better memory utilization.
+Hence a performance index of 95% was achieved on running the library on 64 bit machine. So,it is a much better allocator than the implicit allocator which was our task. 
+
